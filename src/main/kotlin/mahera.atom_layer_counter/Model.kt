@@ -19,7 +19,7 @@ data class Layer(val layerDistance : Double, val counted : Int,
 
 class StructuredFrame{
     val layers : MutableMap<String, MutableList<Layer>> = mutableMapOf()
-    val step : Int = 1
+    var step : Int = 1
 
     fun addLayer(layer : Layer){
         if(!layers.containsKey(layer.type)) layers[layer.type] = mutableListOf()

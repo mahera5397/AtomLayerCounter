@@ -20,6 +20,8 @@ class XYZReader : Reader {
                 else Position
 
             when (type){
+                Position -> currentAtoms.add(convertStringToAtom(string))
+                Step -> currentStep = string.substringAfter(TIME_STEP_LINE).toInt()
                 Quantity -> {
                     quantity = string.toInt()
                     if(currentAtoms.size == quantity){
@@ -28,8 +30,6 @@ class XYZReader : Reader {
                     }
                     else if (currentAtoms.isNotEmpty()) throw CorruptedFileException(MISSING_ATOM)
                 }
-                Step -> currentStep = string.substringAfter(TIME_STEP_LINE).toInt()
-                Position -> currentAtoms.add(convertStringToAtom(string))
             }
         }
         if (currentAtoms.size == quantity) model.add(RawFrame(currentAtoms, currentStep))

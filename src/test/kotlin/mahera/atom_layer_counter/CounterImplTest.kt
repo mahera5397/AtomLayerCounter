@@ -11,7 +11,11 @@ class CounterImplTest {
     fun testCounter(){
         val result = counterImpl.count(generateFrames(), Bundle("",""))
         assertEquals(zArray.size, result[1].layers[""]!!.size)
-//        assertEquals(xArray.map { it.toDouble() }.toSet(), result[2].lakeys)
-//        assertEquals(25, result[3][2.0])
+        val distances = mutableSetOf<Double>()
+        for (layer in result[2].layers[""]!!){
+            distances.add(layer.layerDistance)
+        }
+        assertEquals(xArray.map { it.toDouble() }.toSet(), distances)
+        assertEquals(25, result[3].layers[""]!!.first().counted)
     }
 }

@@ -8,6 +8,8 @@ const val LAYER_DISTANCE = 1.0
 
 class CounterImpl : Counter{
 
+    private var averageOfLayers = mutableListOf<Double>()
+
     override fun count(rawFrames : List<RawFrame>, bundle : Bundle)
             : List<StructuredFrame> {
         val response = mutableListOf<StructuredFrame>()
@@ -18,82 +20,106 @@ class CounterImpl : Counter{
 
     private fun processFrame(rawFrame : RawFrame, bundle : Bundle) : StructuredFrame{
         val sortedFrame = toFloatList(rawFrame, bundle.axis)
-        return if (sortedFrame.isNotEmpty())
-            countAtom(sortedFrame)
+        return if (sortedFrame.isNotEmpty()){
+            val respond = defineLayersAndCount(sortedFrame)
+            respond.step = rawFrame.step
+            respond
+        }
         else StructuredFrame()
     }
 
-    private fun countAtom(sortedFrame: List<Float>) :StructuredFrame{
+    private fun defineLayersAndCount(sortedFrame: List<Float>) :StructuredFrame{
+        val definedLayers = defineLayers(sortedFrame)
+        mergeCloseLayers(definedLayers)
+        val mapOfLayers = countBySmallestDelta(sortedFrame)
+        return convertMapToStructuredFrame(mapOfLayers)
+    }
+
+    private fun defineLayers(sortedFrame: List<Float>): MutableList<MutableList<Float>> {
         val definedLayers = mutableListOf<MutableList<Float>>()
-        val controversial = mutableListOf<Float>()
         var currentLayer = mutableListOf<Float>()
 
-        for (position in sortedFrame){
-            if (currentLayer.isEmpty()){
+        for (position in sortedFrame) {
+            if (currentLayer.isEmpty()) {
                 currentLayer.add(position)
                 continue
             }
-            if(position - currentLayer.last() > MAX_DELTA){
-                if(currentLayer.size >= MIN_IN_LAYER){
+            if (position - currentLayer.last() > MAX_DELTA) {
+                if (currentLayer.size >= MIN_IN_LAYER) {
                     definedLayers.add(currentLayer)
-                }
-                else{
-                    controversial.addAll(currentLayer)
                 }
                 currentLayer = mutableListOf()
                 currentLayer.add(position)
-            }
-            else{
+            } else {
                 currentLayer.add(position)
             }
         }
-        if(currentLayer.size >= MIN_IN_LAYER) definedLayers.add(currentLayer)
-        else controversial.addAll(currentLayer)
+        if (currentLayer.size >= MIN_IN_LAYER) definedLayers.add(currentLayer)
+        return definedLayers
+    }
 
+    private fun mergeCloseLayers(definedLayers: MutableList<MutableList<Float>>) {
         if (definedLayers.size > 1) {
-            var merge= checkForMergin(definedLayers)
-            while (merge.isNotEmpty()){
-                val first = definedLayers[merge.first().first]
-                val second = definedLayers[merge.first().second]
-                definedLayers.remove(first)
-                definedLayers.remove(second)
-                first.addAll(second)
-                definedLayers.add(merge.first().first, first)
-                merge = checkForMergin(definedLayers)
+            var toMerge = checkForMerging(definedLayers)
+            while (toMerge.isNotEmpty()) {
+                val firstLayerIndex = toMerge.first().first
+                val secondLayerIndex = toMerge.first().second
+                val firstLayer = definedLayers[firstLayerIndex]
+                val secondLayer = definedLayers[secondLayerIndex]
+                definedLayers.remove(secondLayer)
+                firstLayer.addAll(secondLayer)
+                toMerge = checkForMerging(definedLayers)
             }
         }
-        val mapOfLayers = mutableMapOf<Double, Int>()
-        for (layer in definedLayers){
-            mapOfLayers[layer.average()] = 0
+    }
+
+    private fun checkForMerging(definedLayers: MutableList<MutableList<Float>>) : List<Pair<Int, Int>>{
+        averageOfLayers = mutableListOf()
+        val toMerge = mutableListOf<Pair<Int, Int>>()
+        var cachedAverage = Double.MIN_VALUE
+        for (index in 0 until definedLayers.size-1) {
+            val currentAverage = if (cachedAverage == Double.MIN_VALUE) {
+                val current = definedLayers[index].average()
+                averageOfLayers.add(current)
+                current
+            }
+            else cachedAverage
+            val nextAverage = definedLayers[index + 1].average()
+            averageOfLayers.add(nextAverage)
+            if (nextAverage - currentAverage < LAYER_DISTANCE) {
+                toMerge.add(Pair(index, index + 1))
+                break
+            }
+            cachedAverage = nextAverage
         }
-        var searched = -1.0
+        return toMerge
+    }
+
+    private fun countBySmallestDelta(sortedFrame: List<Float>): MutableMap<Double, Int> {
+        val mapOfLayers = mutableMapOf<Double, Int>()
+        for (average in averageOfLayers) mapOfLayers[average] = 0
+        var searched = Double.MIN_VALUE
         var currentDelta = Double.MAX_VALUE
-        for (atom in sortedFrame){
-            for (key in mapOfLayers.keys){
-                if ((key - atom).absoluteValue < currentDelta){
+        for (atom in sortedFrame) {
+            for (key in mapOfLayers.keys) {
+                if ((key - atom).absoluteValue < currentDelta) {
                     searched = key
                     currentDelta = (key - atom).absoluteValue
                 }
             }
-            if (searched != -1.0) mapOfLayers[searched] = mapOfLayers[searched]!!+1
+            if (searched != Double.MIN_VALUE) mapOfLayers[searched] = mapOfLayers[searched]!! + 1
             currentDelta = Double.MAX_VALUE
-            searched = -1.0
+            searched = Double.MIN_VALUE
         }
+        return mapOfLayers
+    }
 
+    private fun convertMapToStructuredFrame(mapOfLayers: MutableMap<Double, Int>): StructuredFrame {
         val respond = StructuredFrame()
-        for (key in mapOfLayers.keys){
+        for (key in mapOfLayers.keys) {
             respond.addLayer(Layer(key, mapOfLayers[key]!!))
         }
         return respond
-    }
-
-    private fun checkForMergin(definedLayers: MutableList<MutableList<Float>>) : List<Pair<Int, Int>>{
-        val toMerge = mutableListOf<Pair<Int, Int>>()
-        for (index in 0 until definedLayers.size-1) {
-            if (definedLayers[index + 1].average() - definedLayers[index].average() < LAYER_DISTANCE)
-                toMerge.add(Pair(index, index + 1))
-        }
-        return toMerge
     }
 
     private fun toFloatList(rawFrame: RawFrame, axis : Axis): List<Float> {
