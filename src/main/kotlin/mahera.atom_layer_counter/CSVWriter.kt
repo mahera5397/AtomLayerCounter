@@ -8,20 +8,20 @@ class CSVWriter : Writer {
     override fun writeResult(model: List<StructuredFrame>, bundle: Bundle) {
         val writeOut = mutableListOf<String>()
         for (frame in model){
-            writeOut.add("Step: ${frame.step};")
+            if (bundle.writeAdditionalInfo) writeOut.add("Step: ${frame.step};")
             for (type in frame.layers.keys){
-                writeOut.add("Type: $type;")
+                if (bundle.writeAdditionalInfo) writeOut.add("Type: $type;")
                 val distance = StringBuilder("Distances;")
                 val quantity = StringBuilder("Quantity;")
                 for (layer in frame.layers[type]!!){
                     quantity.append(layer.counted)
                         .append(';')
-                    if (bundle.writeDistances) {
+                    if (bundle.writeAdditionalInfo) {
                         distance.append(layer.layerDistance)
                             .append(';')
                     }
                 }
-                if (bundle.writeDistances) writeOut.add(distance.toString())
+                if (bundle.writeAdditionalInfo) writeOut.add(distance.toString())
                 writeOut.add(quantity.toString())
             }
         }

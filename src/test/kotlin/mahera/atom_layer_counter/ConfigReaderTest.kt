@@ -25,7 +25,7 @@ class ConfigReaderTest {
         val result = configReader.readConfig(NO_CONFIG_INPUT_PATH)
         assertEquals(result.size, NO_CONFIG_INPUT_QUANTITY)
         with(result.first()) {
-            assertEquals(writeDistances, defaultBundle.writeDistances)
+            assertEquals(writeAdditionalInfo, defaultBundle.writeAdditionalInfo)
             assertEquals(layerDistance, defaultBundle.layerDistance)
             assertEquals(axis, defaultBundle.axis)
             assert(outputPath.contains(inputPath.substringBefore(XYZ_FILE)))
