@@ -1,54 +1,68 @@
 package mahera.atom_layer_counter
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.launch
 import mahera.atom_layer_counter.StringType.*
 import java.io.File
 
 class XYZReader : Reader {
+    private var channel = Channel<RawFrame>(Channel.UNLIMITED)
+    private var atomQuantity = -1
 
-    override fun read(bundle: Bundle): List<RawFrame> {
-        val strings = readAsStrings(bundle)
-        val model = mutableListOf<RawFrame>()
-
+    @ExperimentalCoroutinesApi
+    override suspend fun read(bundle: Bundle): Channel<RawFrame> {
+        if (channel.isClosedForSend) channel = Channel()
         var currentAtoms = mutableListOf<Atom>()
         var currentStep = -1
-        var quantity = 0
+        CoroutineScope(Dispatchers.IO).launch {
+            readAsStrings(bundle).consumeEach {
+                val type =
+                    if (!it.contains(QUANTITY_CHAR)) Quantity
+                    else if (it.contains(TIME_STEP_CHAR)) Step
+                    else Position
 
-        for (string in strings){
-            val type =
-                if (!string.contains(QUANTITY_CHAR)) Quantity
-                else if (string.contains(TIME_STEP_CHAR)) Step
-                else Position
-
-            when (type){
-                Position -> currentAtoms.add(convertStringToAtom(string))
-                Step -> currentStep = string.substringAfter(TIME_STEP_LINE).toInt()
-                Quantity -> {
-                    quantity = string.toInt()
-                    if(currentAtoms.size == quantity){
-                        model.add(RawFrame(currentAtoms, currentStep))
-                        currentAtoms = mutableListOf()
+                when (type) {
+                    Position -> currentAtoms.add(convertStringToAtom(it))
+                    Step -> currentStep = it.substringAfter(TIME_STEP_LINE).toInt()
+                    Quantity -> {
+                        if (currentAtoms.isNotEmpty()) throw CorruptedFileException(MISSING_ATOM)
+                        atomQuantity = it.toInt()
                     }
-                    else if (currentAtoms.isNotEmpty()) throw CorruptedFileException(MISSING_ATOM)
+                }
+                if (currentAtoms.size == atomQuantity) {
+                    println("sending through raw channel")
+                    channel.send(RawFrame(currentAtoms, currentStep))
+                    currentAtoms = mutableListOf()
                 }
             }
+                .run {
+                    println("closing raw channel")
+                    channel.close()
+                }
         }
-        if (currentAtoms.size == quantity) model.add(RawFrame(currentAtoms, currentStep))
-        else throw CorruptedFileException(MISSING_ATOM)
-        return model
+        return channel
     }
 
-    private fun readAsStrings(bundle: Bundle): MutableList<String> {
-        val strings = mutableListOf<String>()
-        File(bundle.inputPath).bufferedReader().use {
-            var line: String? = it.readLine()
-            if (line != null) {
-                do {
-                    strings.add(line!!)
-                    line = it.readLine()
-                } while (line != null)
+    @ExperimentalCoroutinesApi
+    private suspend fun readAsStrings(bundle: Bundle): Channel<String> {
+        val channel = Channel<String>(Channel.UNLIMITED)
+        CoroutineScope(Dispatchers.IO).launch{
+            File(bundle.inputPath).bufferedReader().use {
+                var line: String? = it.readLine()
+                if (line != null) {
+                    do {
+                        channel.send(line!!)
+                        line = it.readLine()
+                    } while (line != null)
+                }
+                channel.close()
             }
         }
-        return strings
+        return channel
     }
 
     private fun convertStringToAtom(string : String) : Atom {

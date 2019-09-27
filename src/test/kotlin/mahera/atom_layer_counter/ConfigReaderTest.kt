@@ -15,14 +15,14 @@ class ConfigReaderTest {
 
     @Test
     fun testWithConfigs(){
-        val result = configReader.readConfig(CONFIG_INPUT_PATH)
+        val result = configReader.readConfigAsync(CONFIG_INPUT_PATH)
         assertEquals(result.size, CONFIG_INPUT_QUANTITY)
         assert(result.contains(modBundle))
     }
 
     @Test
     fun testWithXYZs(){
-        val result = configReader.readConfig(NO_CONFIG_INPUT_PATH)
+        val result = configReader.readConfigAsync(NO_CONFIG_INPUT_PATH)
         assertEquals(result.size, NO_CONFIG_INPUT_QUANTITY)
         with(result.first()) {
             assertEquals(writeAdditionalInfo, defaultBundle.writeAdditionalInfo)

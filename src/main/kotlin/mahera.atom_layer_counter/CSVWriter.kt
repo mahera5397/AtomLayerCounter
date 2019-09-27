@@ -1,47 +1,62 @@
 package mahera.atom_layer_counter
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.withContext
 import java.io.BufferedWriter
 import java.io.FileWriter
 
 const val WRITER_SUFFIX = "_processed.csv"
 class CSVWriter : Writer {
+    lateinit var bufWriter : BufferedWriter
 
-    override fun writeResult(model: List<StructuredFrame>, bundle: Bundle) {
-        val writeOut = prepareStrings(model, bundle)
-        writeOut(bundle, writeOut)
+    @ExperimentalCoroutinesApi
+    override suspend fun writeResult(model: Channel<StructuredFrame>, bundle: Bundle) {
+        val outPath = bundle.outputPath + WRITER_SUFFIX
+        bufWriter = getBufWriter(outPath)
+
+        model.consumeEach {
+            val strings = prepareStrings(it, bundle.writeAdditionalInfo)
+            for (string in strings){
+                bufWriter.write(string)
+                bufWriter.newLine()
+            }
+        }
+            .run { closeBufWriter() }
     }
 
-    private fun prepareStrings(model: List<StructuredFrame>, bundle: Bundle)
+    private suspend fun getBufWriter(outPath : String) : BufferedWriter =
+        withContext(Dispatchers.IO){
+            BufferedWriter(FileWriter(outPath))
+        }
+
+    private suspend fun closeBufWriter() =
+        withContext(Dispatchers.IO){
+            bufWriter.close()
+        }
+
+    private fun prepareStrings(frame: StructuredFrame, writeInfo : Boolean)
             : MutableList<String> {
         val writeOut = mutableListOf<String>()
-        for (frame in model) {
-            if (bundle.writeAdditionalInfo) writeOut.add("Step: ${frame.step};")
-            for (type in frame.layers.keys) {
-                if (bundle.writeAdditionalInfo) writeOut.add("Type: $type;")
-                val distance = StringBuilder("Distances;")
-                val quantity = StringBuilder("Quantity;")
-                for (layer in frame.layers[type]!!) {
-                    quantity.append(layer.counted)
+
+        if (writeInfo) writeOut.add("Step: ${frame.step};")
+        for (type in frame.layers.keys) {
+            if (writeInfo) writeOut.add("Type: $type;")
+            val distance = StringBuilder("Distances;")
+            val quantity = StringBuilder("Quantity;")
+            for (layer in frame.layers[type]!!) {
+                quantity.append(layer.counted)
+                    .append(';')
+                if (writeInfo) {
+                    distance.append(layer.layerDistance)
                         .append(';')
-                    if (bundle.writeAdditionalInfo) {
-                        distance.append(layer.layerDistance)
-                            .append(';')
-                    }
                 }
-                if (bundle.writeAdditionalInfo) writeOut.add(distance.toString())
-                writeOut.add(quantity.toString())
             }
+            if (writeInfo) writeOut.add(distance.toString())
+            writeOut.add(quantity.toString())
         }
         return writeOut
-    }
-
-    private fun writeOut(bundle: Bundle, writeOut: MutableList<String>) {
-        val outPath = bundle.outputPath + WRITER_SUFFIX
-        BufferedWriter(FileWriter(outPath)).use {
-            for (line in writeOut) {
-                it.write(line)
-                it.newLine()
-            }
-        }
     }
 }

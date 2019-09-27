@@ -1,5 +1,11 @@
 package mahera.atom_layer_counter
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 
 const val MAX_DELTA = 0.01
@@ -10,11 +16,19 @@ class CounterImpl : Counter{
 
     private var averageOfLayers = mutableListOf<Double>()
 
-    override fun count(rawFrames : List<RawFrame>, bundle : Bundle)
-            : List<StructuredFrame> {
-        val response = mutableListOf<StructuredFrame>()
-        for(frame in rawFrames)
-            response.add(processFrame(frame, bundle))
+    @ExperimentalCoroutinesApi
+    override suspend fun count(rawFrames : Channel<RawFrame>, bundle : Bundle)
+            : Channel<StructuredFrame> {
+        val response = Channel<StructuredFrame>(Channel.UNLIMITED)
+        CoroutineScope(Dispatchers.Unconfined).launch {
+            rawFrames.consumeEach {
+                println("sending through processed channel")
+                response.send(processFrame(it, bundle))
+            }
+                .run {
+                    println("closing processed channel")
+                    response.close() }
+        }
         return response
     }
 
