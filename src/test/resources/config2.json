@@ -1,0 +1,2 @@
+[{"layerDistance":0.1,"inputPath":"input/test","outputPath":"output/test","writeDistances":false,"axis":"X"},
+{"layerDistance":0.5,"inputPath":"some path","outputPath":"another path","writeDistances":true,"axis":"Z"}]

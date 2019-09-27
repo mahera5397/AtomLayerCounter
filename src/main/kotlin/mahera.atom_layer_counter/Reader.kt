@@ -1,8 +1,7 @@
 package mahera.atom_layer_counter
 
 import mahera.atom_layer_counter.StringType.*
-import java.io.BufferedReader
-import java.io.FileReader
+import java.io.File
 
 class XYZReader : Reader {
 
@@ -40,7 +39,7 @@ class XYZReader : Reader {
 
     private fun readAsStrings(bundle: Bundle): MutableList<String> {
         val strings = mutableListOf<String>()
-        BufferedReader(FileReader(bundle.inputPath)).use {
+        File(bundle.inputPath).bufferedReader().use {
             var line: String? = it.readLine()
             if (line != null) {
                 do {

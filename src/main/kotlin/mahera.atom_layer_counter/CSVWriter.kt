@@ -3,6 +3,7 @@ package mahera.atom_layer_counter
 import java.io.BufferedWriter
 import java.io.FileWriter
 
+const val WRITER_SUFFIX = "_processed.csv"
 class CSVWriter : Writer {
     override fun writeResult(model: List<StructuredFrame>, bundle: Bundle) {
         val writeOut = mutableListOf<String>()
@@ -24,7 +25,8 @@ class CSVWriter : Writer {
                 writeOut.add(quantity.toString())
             }
         }
-        BufferedWriter(FileWriter(bundle.outputPath)).use {
+        val outPath = bundle.outputPath + WRITER_SUFFIX
+        BufferedWriter(FileWriter(outPath)).use {
             for (line in writeOut){
                 it.write(line)
                 it.newLine()
