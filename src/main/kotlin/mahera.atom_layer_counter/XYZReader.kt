@@ -9,49 +9,46 @@ import kotlinx.coroutines.launch
 import mahera.atom_layer_counter.StringType.*
 import java.io.File
 
+@ExperimentalCoroutinesApi
 class XYZReader : Reader {
     private var channel = Channel<RawFrame>(Channel.UNLIMITED)
+    private var currentAtoms = mutableListOf<Atom>()
+    private var currentStep = -1
     private var atomQuantity = -1
 
-    @ExperimentalCoroutinesApi
     override suspend fun read(bundle: Bundle): Channel<RawFrame> {
-        if (channel.isClosedForSend) channel = Channel()
-        var currentAtoms = mutableListOf<Atom>()
-        var currentStep = -1
-        CoroutineScope(Dispatchers.IO).launch {
-            readAsStrings(bundle).consumeEach {
-                val type =
-                    if (!it.contains(QUANTITY_CHAR)) Quantity
-                    else if (it.contains(TIME_STEP_CHAR)) Step
-                    else Position
-
-                when (type) {
-                    Position -> currentAtoms.add(convertStringToAtom(it))
-                    Step -> currentStep = it.substringAfter(TIME_STEP_LINE).toInt()
-                    Quantity -> {
-                        if (currentAtoms.isNotEmpty()) throw CorruptedFileException(MISSING_ATOM)
-                        atomQuantity = it.toInt()
-                    }
-                }
-                if (currentAtoms.size == atomQuantity) {
-                    println("sending through raw channel")
-                    channel.send(RawFrame(currentAtoms, currentStep))
-                    currentAtoms = mutableListOf()
-                }
-            }
-                .run {
-                    println("closing raw channel")
-                    channel.close()
-                }
+        if (channel.isClosedForSend) channel = Channel(Channel.UNLIMITED)
+        CoroutineScope(Dispatchers.Unconfined).launch {
+            sendRawFrames(bundle)
         }
         return channel
     }
 
-    @ExperimentalCoroutinesApi
+    private suspend fun sendRawFrames(bundle: Bundle) {
+        readAsStrings(bundle).consumeEach {
+            when (getStringType(it)) {
+                Position -> currentAtoms.add(convertStringToAtom(it))
+                Step -> currentStep = it.substringAfter(TIME_STEP_LINE).toInt()
+                Quantity -> {
+                    if (currentAtoms.isNotEmpty()) throw CorruptedFileException(MISSING_ATOM)
+                    atomQuantity = it.toInt()
+                }
+            }
+            checkIfFrameIsComplete()
+        }.run { channel.close() }
+    }
+
     private suspend fun readAsStrings(bundle: Bundle): Channel<String> {
         val channel = Channel<String>(Channel.UNLIMITED)
         CoroutineScope(Dispatchers.IO).launch{
-            File(bundle.inputPath).bufferedReader().use {
+            sendThroughStringChannel(bundle, channel)
+        }
+        return channel
+    }
+
+    private suspend fun sendThroughStringChannel(bundle: Bundle, channel: Channel<String>) {
+        File(bundle.inputPath).bufferedReader()
+            .use {
                 var line: String? = it.readLine()
                 if (line != null) {
                     do {
@@ -61,8 +58,19 @@ class XYZReader : Reader {
                 }
                 channel.close()
             }
+    }
+
+    private fun getStringType(it: String): StringType {
+        return if (!it.contains(QUANTITY_CHAR)) Quantity
+        else if (it.contains(TIME_STEP_CHAR)) Step
+        else Position
+    }
+
+    private suspend fun checkIfFrameIsComplete() {
+        if (currentAtoms.size == atomQuantity) {
+            channel.send(RawFrame(currentAtoms, currentStep))
+            currentAtoms = mutableListOf()
         }
-        return channel
     }
 
     private fun convertStringToAtom(string : String) : Atom {

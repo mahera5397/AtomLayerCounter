@@ -1,6 +1,5 @@
 package mahera.atom_layer_counter
 
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.channels.Channel
 
 interface Reader{
@@ -8,7 +7,7 @@ interface Reader{
 }
 
 interface ConfigReader{
-    suspend fun readConfigAsync(path : String) : Deferred<Channel<Bundle>>
+    suspend fun readConfig(path : String) : Channel<Bundle>
 }
 
 interface Counter{
@@ -17,5 +16,5 @@ interface Counter{
 }
 
 interface Writer{
-    suspend fun writeResult(model : Channel<StructuredFrame>, bundle : Bundle)
+    suspend fun writeResult(structuredFrames : Channel<StructuredFrame>, bundle : Bundle)
 }

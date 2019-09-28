@@ -2,7 +2,7 @@ package mahera.atom_layer_counter
 
 class Bundle(
     val inputPath : String,
-    val outputPath : String,
+    var outputPath : String,
     val writeAdditionalInfo : Boolean = false,
     val axis: Axis = Axis.Z,
     distance : Double = LAYER_DISTANCE){

@@ -12,35 +12,50 @@ const val MAX_DELTA = 0.01
 const val MIN_IN_LAYER = 4
 const val LAYER_DISTANCE = 1.0
 
+@ExperimentalCoroutinesApi
 class CounterImpl : Counter{
 
     private var averageOfLayers = mutableListOf<Double>()
+    private var channel = Channel<StructuredFrame>(Channel.UNLIMITED)
 
-    @ExperimentalCoroutinesApi
     override suspend fun count(rawFrames : Channel<RawFrame>, bundle : Bundle)
             : Channel<StructuredFrame> {
-        val response = Channel<StructuredFrame>(Channel.UNLIMITED)
+        if (channel.isClosedForSend) channel = Channel(Channel.UNLIMITED)
         CoroutineScope(Dispatchers.Unconfined).launch {
-            rawFrames.consumeEach {
-                println("sending through processed channel")
-                response.send(processFrame(it, bundle))
-            }
-                .run {
-                    println("closing processed channel")
-                    response.close() }
+            sendStructuredFrames(rawFrames, bundle)
         }
-        return response
+        return channel
+    }
+
+    private suspend fun sendStructuredFrames(rawFrames: Channel<RawFrame>, bundle: Bundle) {
+        rawFrames.consumeEach {
+            channel.send(processFrame(it, bundle))
+        }.run { channel.close() }
     }
 
     private fun processFrame(rawFrame : RawFrame, bundle : Bundle) : StructuredFrame{
-        val sortedFrame = toFloatList(rawFrame, bundle.axis)
-        return if (sortedFrame.isNotEmpty()){
+        return if (rawFrame.atoms.isNotEmpty()){
+            val sortedFrame = toFloatList(rawFrame, bundle.axis)
             val respond = defineLayersAndCount(sortedFrame)
             respond.step = rawFrame.step
             respond
         }
         else StructuredFrame()
     }
+
+    private fun toFloatList(rawFrame: RawFrame, axis : Axis): List<Float> {
+        return rawFrame.atoms.asSequence()
+            .map { atomMappingClosure(it, axis) }
+            .sortedBy { it }
+            .toList()
+    }
+
+    private fun atomMappingClosure(it : Atom, axis : Axis) =
+        when (axis){
+            Axis.X -> it.x
+            Axis.Y -> it.y
+            Axis.Z -> it.z
+        }
 
     private fun defineLayersAndCount(sortedFrame: List<Float>) :StructuredFrame{
         val definedLayers = defineLayers(sortedFrame)
@@ -135,18 +150,4 @@ class CounterImpl : Counter{
         }
         return respond
     }
-
-    private fun toFloatList(rawFrame: RawFrame, axis : Axis): List<Float> {
-        return rawFrame.atoms.asSequence()
-            .map { atomMappingClosure(it, axis) }
-            .sortedBy { it }
-            .toList()
-    }
-
-    private fun atomMappingClosure(it : Atom, axis : Axis) =
-        when (axis){
-            Axis.X -> it.x
-            Axis.Y -> it.y
-            Axis.Z -> it.z
-        }
 }

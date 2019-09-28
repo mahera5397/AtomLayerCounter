@@ -9,32 +9,27 @@ import java.io.BufferedWriter
 import java.io.FileWriter
 
 const val WRITER_SUFFIX = "_processed.csv"
+
+@ExperimentalCoroutinesApi
 class CSVWriter : Writer {
-    lateinit var bufWriter : BufferedWriter
+    private lateinit var bufWriter : BufferedWriter
 
-    @ExperimentalCoroutinesApi
-    override suspend fun writeResult(model: Channel<StructuredFrame>, bundle: Bundle) {
+    override suspend fun writeResult(structuredFrames: Channel<StructuredFrame>, bundle: Bundle){
         val outPath = bundle.outputPath + WRITER_SUFFIX
-        bufWriter = getBufWriter(outPath)
 
-        model.consumeEach {
+        bufWriter = getBufWriter(outPath)
+        structuredFrames.consumeEach {
             val strings = prepareStrings(it, bundle.writeAdditionalInfo)
-            for (string in strings){
+            for (string in strings) {
                 bufWriter.write(string)
                 bufWriter.newLine()
             }
-        }
-            .run { closeBufWriter() }
+        }.run { closeBufWriter() }
     }
 
     private suspend fun getBufWriter(outPath : String) : BufferedWriter =
         withContext(Dispatchers.IO){
             BufferedWriter(FileWriter(outPath))
-        }
-
-    private suspend fun closeBufWriter() =
-        withContext(Dispatchers.IO){
-            bufWriter.close()
         }
 
     private fun prepareStrings(frame: StructuredFrame, writeInfo : Boolean)
@@ -59,4 +54,9 @@ class CSVWriter : Writer {
         }
         return writeOut
     }
+
+    private suspend fun closeBufWriter() =
+        withContext(Dispatchers.IO){
+            bufWriter.close()
+        }
 }
