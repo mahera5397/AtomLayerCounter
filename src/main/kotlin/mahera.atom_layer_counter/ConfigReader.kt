@@ -14,13 +14,13 @@ const val JSON_FILE = ".json"
 
 @ExperimentalCoroutinesApi
 class ConfigReaderImpl : ConfigReader {
-    private var channel = Channel<Bundle>(capacity = Channel.UNLIMITED)
+    private var channel = Channel<Bundle>()
     companion object{
         private val gson = Gson()
     }
 
     override suspend fun readConfig(path : String): Channel<Bundle>{
-        if (channel.isClosedForSend) channel = Channel(capacity = Channel.UNLIMITED)
+        if (channel.isClosedForSend) channel = Channel()
         CoroutineScope(Dispatchers.IO).launch {
             scanDirectoryAndSendBundles(path)
         }

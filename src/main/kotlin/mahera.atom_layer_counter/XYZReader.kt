@@ -11,13 +11,13 @@ import java.io.File
 
 @ExperimentalCoroutinesApi
 class XYZReader : Reader {
-    private var channel = Channel<RawFrame>(Channel.UNLIMITED)
+    private var channel = Channel<RawFrame>()
     private var currentAtoms = mutableListOf<Atom>()
     private var currentStep = -1
     private var atomQuantity = -1
 
     override suspend fun read(bundle: Bundle): Channel<RawFrame> {
-        if (channel.isClosedForSend) channel = Channel(Channel.UNLIMITED)
+        if (channel.isClosedForSend) channel = Channel()
         CoroutineScope(Dispatchers.Unconfined).launch {
             sendRawFrames(bundle)
         }
@@ -39,7 +39,7 @@ class XYZReader : Reader {
     }
 
     private suspend fun readAsStrings(bundle: Bundle): Channel<String> {
-        val channel = Channel<String>(Channel.UNLIMITED)
+        val channel = Channel<String>()
         CoroutineScope(Dispatchers.IO).launch{
             sendThroughStringChannel(bundle, channel)
         }

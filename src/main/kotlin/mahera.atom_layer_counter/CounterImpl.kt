@@ -16,11 +16,11 @@ const val LAYER_DISTANCE = 1.0
 class CounterImpl : Counter{
 
     private var averageOfLayers = mutableListOf<Double>()
-    private var channel = Channel<StructuredFrame>(Channel.UNLIMITED)
+    private var channel = Channel<StructuredFrame>()
 
     override suspend fun count(rawFrames : Channel<RawFrame>, bundle : Bundle)
             : Channel<StructuredFrame> {
-        if (channel.isClosedForSend) channel = Channel(Channel.UNLIMITED)
+        if (channel.isClosedForSend) channel = Channel()
         CoroutineScope(Dispatchers.Unconfined).launch {
             sendStructuredFrames(rawFrames, bundle)
         }

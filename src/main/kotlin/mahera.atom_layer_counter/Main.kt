@@ -24,5 +24,5 @@ fun main() {
             }
         }
     }
-    println("runtime is $time millisecond")
+    println("time is $time")
 }
