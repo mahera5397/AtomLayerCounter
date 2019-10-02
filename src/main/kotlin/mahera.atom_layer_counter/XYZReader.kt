@@ -8,6 +8,7 @@ import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.launch
 import mahera.atom_layer_counter.StringType.*
 import java.io.File
+import kotlin.coroutines.coroutineContext
 
 @ExperimentalCoroutinesApi
 class XYZReader : Reader {
@@ -18,7 +19,7 @@ class XYZReader : Reader {
 
     override suspend fun read(bundle: Bundle): Channel<RawFrame> {
         if (channel.isClosedForSend) channel = Channel()
-        CoroutineScope(Dispatchers.Unconfined).launch {
+        CoroutineScope(Dispatchers.Unconfined + coroutineContext).launch {
             sendRawFrames(bundle)
         }
         return channel
@@ -40,7 +41,7 @@ class XYZReader : Reader {
 
     private suspend fun readAsStrings(bundle: Bundle): Channel<String> {
         val channel = Channel<String>()
-        CoroutineScope(Dispatchers.IO).launch{
+        CoroutineScope(Dispatchers.IO + coroutineContext).launch{
             sendThroughStringChannel(bundle, channel)
         }
         return channel

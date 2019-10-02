@@ -1,22 +1,28 @@
 package mahera.atom_layer_counter
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.consumeEach
-import kotlinx.coroutines.withContext
 import java.io.BufferedWriter
 import java.io.FileWriter
+import kotlin.coroutines.coroutineContext
 
 const val WRITER_SUFFIX = "_processed.csv"
 
 @ExperimentalCoroutinesApi
 class CSVWriter : Writer {
     private lateinit var bufWriter : BufferedWriter
+    private var outPath = ""
 
     override suspend fun writeResult(structuredFrames: Channel<StructuredFrame>, bundle: Bundle){
-        val outPath = bundle.outputPath + WRITER_SUFFIX
+        outPath = bundle.outputPath + WRITER_SUFFIX
+        CoroutineScope(Dispatchers.IO + coroutineContext).launch {
+            consumeChannel(structuredFrames, bundle)
+        }
+    }
 
+    private suspend fun consumeChannel(structuredFrames: Channel<StructuredFrame>,
+                                       bundle: Bundle) {
         bufWriter = getBufWriter(outPath)
         structuredFrames.consumeEach {
             val strings = prepareStrings(it, bundle.writeAdditionalInfo)

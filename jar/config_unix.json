@@ -1,0 +1,3 @@
+[{"layerDistance":1.0,"inputPath":"/home/example/Pt_hole.xyz","outputPath":"/home/processed/out_file_name","writeAdditionalInfo":false,"axis":"X"},
+  {"layerDistance":1.1,"inputPath":"/home/example/Pt_hole2.xyz","outputPath":"/home/processed/out_file_name2","writeAdditionalInfo":true,"axis":"Y"}
+]

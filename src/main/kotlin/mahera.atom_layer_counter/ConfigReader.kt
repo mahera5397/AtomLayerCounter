@@ -7,6 +7,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import java.io.File
+import kotlin.coroutines.coroutineContext
 
 const val CONFIG_FILE = "config"
 const val XYZ_FILE = ".xyz"
@@ -21,7 +22,7 @@ class ConfigReaderImpl : ConfigReader {
 
     override suspend fun readConfig(path : String): Channel<Bundle>{
         if (channel.isClosedForSend) channel = Channel()
-        CoroutineScope(Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.IO + coroutineContext).launch {
             scanDirectoryAndSendBundles(path)
         }
         return channel

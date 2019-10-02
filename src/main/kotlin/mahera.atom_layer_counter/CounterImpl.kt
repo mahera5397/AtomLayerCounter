@@ -6,6 +6,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.launch
+import kotlin.coroutines.coroutineContext
 import kotlin.math.absoluteValue
 
 const val MAX_DELTA = 0.01
@@ -21,7 +22,7 @@ class CounterImpl : Counter{
     override suspend fun count(rawFrames : Channel<RawFrame>, bundle : Bundle)
             : Channel<StructuredFrame> {
         if (channel.isClosedForSend) channel = Channel()
-        CoroutineScope(Dispatchers.Unconfined).launch {
+        CoroutineScope(Dispatchers.Unconfined + coroutineContext).launch {
             sendStructuredFrames(rawFrames, bundle)
         }
         return channel

@@ -2,10 +2,12 @@ package mahera.atom_layer_counter
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
+import java.io.File
 import kotlin.system.measureTimeMillis
 
-val PATH = System.getProperty("user.dir") + '/'
+val PATH = System.getProperty("user.dir")+ File.separator
 
 @ExperimentalCoroutinesApi
 fun main() {
@@ -22,6 +24,7 @@ fun main() {
                 val countedChannel = counter.count(rawChannel, it)
                 writer.writeResult(countedChannel, it)
             }
+            joinAll()
         }
     }
     println("time is $time")
